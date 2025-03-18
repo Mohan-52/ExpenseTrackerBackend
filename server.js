@@ -88,7 +88,7 @@ app.post("/signup", async (request, response) => {
     const dbUser = await db.get(selectQuery, [email]);
 
     if (dbUser) {
-      return response.status(400).send("User ALready Exists");
+      return response.status(400).send({ message: "User ALready Exists" });
     }
 
     const hashedPwd = await bcrypt.hash(password, 10);
