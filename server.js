@@ -120,7 +120,7 @@ app.post("/login/", async (request, response) => {
     if (!dbUser) {
       return response
         .status(400)
-        .send({ message: "Invalid Username or Password" });
+        .send({ message: "Invalid Email or Password" });
     }
 
     const isPwdMatch = await bcrypt.compare(password, dbUser.password);
@@ -133,7 +133,7 @@ app.post("/login/", async (request, response) => {
       const jwtToken = jwt.sign(payload, "MY_TOKEN");
       response.status(200).send({ jwt_token: jwtToken });
     } else {
-      response.status(400).send({ message: "Invalid Username or Password" });
+      response.status(400).send({ message: "Invalid Email or Password" });
     }
   } catch (err) {
     response.status(500).send({ message: "Internal Server Error" });
