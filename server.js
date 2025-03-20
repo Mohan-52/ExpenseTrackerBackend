@@ -178,13 +178,16 @@ app.post("/transactions", authenticateToken, async (request, response) => {
 app.get("/transactions", authenticateToken, async (request, response) => {
   const { email } = request;
   const userId = await getUserId(email);
-  const { type, category, month, year, search, order } = request.query;
+  const { type, category, start_date, end_date, search, order } = request.query;
 
   if (!userId) {
     return response.status(401).send({ message: "Invalid User" });
   }
 
-  let getAllTranctionQuery = `SELECT * FROM transactions WHERE user_id=?`;
+  let getAllTranctionQuery = `
+  SELECT 
+      id, amount, type, category, description, date 
+  FROM transactions WHERE user_id=?`;
   const values = [userId];
 
   if (type) {
@@ -197,14 +200,14 @@ app.get("/transactions", authenticateToken, async (request, response) => {
     values.push(category);
   }
 
-  if (month && year) {
-    getAllTranctionQuery += ` AND strftime('%m',date)=? AND strftime('%Y',date)=?`;
-    values.push(month.padStart(2, "0"), year);
+  if (start_date) {
+    getAllTranctionQuery += ` AND date>=?`;
+    values.push(start_date);
   }
 
-  if (year && !month) {
-    getAllTranctionQuery += ` AND strftime('%Y',date)=?`;
-    values.push(year);
+  if (end_date) {
+    getAllTranctionQuery += ` AND date<=?`;
+    values.push(end_date);
   }
 
   if (search) {
@@ -219,6 +222,10 @@ app.get("/transactions", authenticateToken, async (request, response) => {
     getAllTranctionQuery += ` ORDER BY amount ${order.toUpperCase()}`;
   }
 
+  if (!order) {
+    getAllTranctionQuery += ` ORDER BY date ASC`;
+  }
+
   try {
     const dbResponse = await db.all(getAllTranctionQuery, values);
     response.status(200).send(dbResponse);
@@ -227,6 +234,33 @@ app.get("/transactions", authenticateToken, async (request, response) => {
     response.status(500).send({ message: "Internal Server Error" });
   }
 });
+
+app.get(
+  "/transactions/recent",
+  authenticateToken,
+  async (request, response) => {
+    const { email } = request;
+    const userId = await getUserId(email);
+    if (!userId) {
+      return response.status(401).send({ message: "Invalid User" });
+    }
+
+    const recentQuerry = `
+    SELECT 
+      id, date, category, amount, type FROM transactions 
+    WHERE user_id=?
+    ORDER BY date DESC 
+    LIMIT 5;`;
+
+    try {
+      const dbResponse = await db.all(recentQuerry, [userId]);
+      response.status(200).send(dbResponse);
+    } catch (error) {
+      response.status(500).send({ message: "Internal Server Error" });
+      console.log(error);
+    }
+  }
+);
 
 app.get("/transactions/:id", authenticateToken, async (request, response) => {
   const { email } = request;
@@ -238,7 +272,9 @@ app.get("/transactions/:id", authenticateToken, async (request, response) => {
     return response.status(401).send({ message: "Invalid User" });
   }
 
-  const getAllTranctionQuery = `SELECT * FROM transactions WHERE id=? AND user_id=? `;
+  const getAllTranctionQuery = `SELECT  
+  id, amount, type, category, description, date  
+  FROM transactions WHERE id=? AND user_id=? `;
 
   try {
     const dbResponse = await db.all(getAllTranctionQuery, [id, userId]);
